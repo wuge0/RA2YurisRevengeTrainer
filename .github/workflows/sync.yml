@@ -1,0 +1,64 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    # 每天北京时间 6:00 (UTC 22:00) 自动同步
+    - cron: '0 22 * * *'
+  workflow_dispatch: # 也支持手动触发
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Configure Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Add upstream remote
+      run: |
+        git remote add upstream https://github.com/AdjWang/RA2YurisRevengeTrainer.git
+        git fetch upstream
+
+    - name: Sync with upstream
+      run: |
+        # 获取当前分支名
+        BRANCH=$(git branch --show-current)
+        echo "当前分支: $BRANCH"
+
+        # 检查上游是否有新提交
+        LOCAL=$(git rev-parse HEAD)
+        UPSTREAM=$(git rev-parse upstream/main)
+        echo "本地: $LOCAL"
+        echo "上游: $UPSTREAM"
+
+        if [ "$LOCAL" = "$UPSTREAM" ]; then
+          echo "已经是最新，无需同步"
+          exit 0
+        fi
+
+        # 合并上游代码
+        git merge upstream/main --allow-unrelated-histories --no-edit
+
+        # 如果有冲突，用上游版本覆盖
+        if [ $? -ne 0 ]; then
+          echo "存在冲突，使用上游版本解决"
+          git merge --abort
+          git reset --hard upstream/main
+        fi
+
+        echo "同步完成"
+
+    - name: Push changes
+      run: |
+        BRANCH=$(git branch --show-current)
+        git push origin $BRANCH
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

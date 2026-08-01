@@ -1,0 +1,25 @@
+#pragma once
+#include <string>
+
+namespace yrtr {
+using ThreadId = uint32_t;
+// Use 0 as invalid thread id.
+// https://learn.microsoft.com/en-us/windows/win32/procthread/thread-handles-and-identifiers
+
+ThreadId GetGameLoopThreadId();
+ThreadId GetRendererThreadId();
+ThreadId GetNetThreadId();
+ThreadId GetFilesystemThreadId();
+void SetupGameLoopThreadOnce(ThreadId tid = 0);
+void SetupRendererThreadOnce(ThreadId tid = 0);
+void SetupNetThreadOnce(ThreadId tid = 0);
+void SetupFilesystemThreadOnce(ThreadId tid = 0);
+bool IsWithinThread(ThreadId tid);
+bool IsWithinGameLoopThread();
+bool IsWithinRendererThread();
+bool IsWithinNetThread();
+bool IsWithinFilesystemThread();
+// For debugging.
+std::string InspectThreads();
+
+}  // namespace yrtr

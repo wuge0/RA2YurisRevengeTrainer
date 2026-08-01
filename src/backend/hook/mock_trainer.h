@@ -1,0 +1,58 @@
+#pragma once
+#include <cstdint>
+
+#include "backend/hook/trainer.h"
+#include "base/macro.h"
+#include "protocol/model.h"
+
+namespace yrtr {
+namespace backend {
+namespace hook {
+
+class MockTrainer : public ITrainer {
+ public:
+  MockTrainer(Config* cfg);
+  MockTrainer(MockTrainer&&) = delete;
+  MockTrainer& operator=(MockTrainer&&) = delete;
+  ~MockTrainer();
+
+  State state() const final {
+    DCHECK(IsWithinGameLoopThread());
+    return state_;
+  }
+
+  void set_on_state_updated(std::function<void(State)> cb) final {
+    on_state_updated_ = std::move(cb);
+  }
+
+  void Update(double delta) final;
+  void OnInputEvent(FnLabel label, uint32_t val) final;
+  void OnButtonEvent(FnLabel label) final;
+  void OnCheckboxEvent(FnLabel label, bool activate) final;
+  void OnSliderEvent(FnLabel label, uint32_t val) final;
+  void OnProtectedListEvent(SideMap&& side_map) final;
+
+ private:
+  static constexpr uint32_t kRecordDurationMs = 2000;
+  // Update from state before use.
+  static SideMap protected_houses_;
+
+  Config* cfg_;
+  State state_;
+  std::function<void(State)> on_state_updated_;
+  bool state_dirty_;
+
+  // Use a bool trigger as debouncing mechanism.
+  bool pending_record_;
+  std::chrono::steady_clock::time_point last_record_ts_;
+
+  void PropagateStateIfDirty();
+  void UpdateCheckboxState(FnLabel label, bool activate);
+  void UpdateSliderState(FnLabel label, uint32_t val);
+
+  DISALLOW_COPY_AND_ASSIGN(MockTrainer);
+};
+
+}  // namespace hook
+}  // namespace backend
+}  // namespace yrtr

@@ -1,0 +1,64 @@
+#pragma once
+#include <set>
+#include <thread>
+
+#include "backend/hook/trainer.h"
+#include "base/macro.h"
+#include "base/task_queue.h"
+#include "protocol/model.h"
+#include "websocketpp/config/asio_no_tls.hpp"
+#include "websocketpp/server.hpp"
+
+namespace yrtr {
+
+class Server {
+ public:
+  Server(backend::hook::ITrainer* trainer, uint16_t port);
+  Server(backend::hook::ITrainer* trainer, uint16_t port,
+         const fs::path& index);
+  void Stop();
+  void Update();
+
+ private:
+  struct quiet_config : public websocketpp::config::asio {
+    // Exclude frame_header from logging.
+    static const long alog_level = websocketpp::config::asio::alog_level &
+                                   ~websocketpp::log::alevel::frame_header;
+  };
+  // using WebsocketServer = websocketpp::server<websocketpp::config::asio>;
+  using WebsocketServer = websocketpp::server<quiet_config>;
+
+  // This tool is used in LAN, 50ms should be enough. Large timeout queues too
+  // many jobs in sending queue when the backend is not running, making the gui
+  // actions, like close window, acts lagging.
+  static constexpr int kConnTimeoutMilliseconds = 50;
+
+  backend::hook::ITrainer* trainer_;
+  fs::path index_path_;
+  std::thread evloop_;
+  WebsocketServer svr_;
+  // Record connection to propagate state.
+  std::set<websocketpp::connection_hdl,
+           std::owner_less<websocketpp::connection_hdl>>
+      conns_;
+  TaskQueue game_loop_ch_;
+
+  void Init(uint16_t port);
+  void OnOpenConn(websocketpp::connection_hdl hdl);
+  void OnCloseConn(websocketpp::connection_hdl hdl);
+  void OnMessage(WebsocketServer& svr, websocketpp::connection_hdl hdl,
+                 WebsocketServer::message_ptr msg);
+  void OnHttpRequest(WebsocketServer& svr, websocketpp::connection_hdl hdl);
+  void OnStateUpdated(State state);
+  void OnGetStateEvent(websocketpp::connection_hdl hdl);
+  void SendState(State&& state, websocketpp::connection_hdl hdl);
+  void OnPostInputEvent(Event<uint32_t>&& event);
+  void OnPostButtonEvent(Event<int>&& event);
+  void OnPostCheckboxEvent(Event<bool>&& event);
+  void OnPostSliderEvent(Event<uint32_t>&& event);
+  void OnPostProtectedListEvent(Event<SideMap>&& event);
+
+  DISALLOW_COPY_AND_ASSIGN(Server);
+};
+
+}  // namespace yrtr

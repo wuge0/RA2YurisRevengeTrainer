@@ -1,0 +1,39 @@
+[ra2_trainer]
+port = 35271
+
+# Get key names at:
+# https://w3c.github.io/uievents-code/#key-alphanumeric-section
+[hotkeys]
+# Buttons.
+Apply       = "Digit1"
+IAMWinner   = "Digit2"
+DeleteUnit  = "Digit3"
+ClearShroud = "Digit4"
+GiveMeABomb = "Digit5"
+UnitLevelUp = "Digit6"
+UnitSpeedUp = "Digit7"
+FastBuild   = "Digit8"
+ThisIsMine  = "Digit9"
+
+# Checkboxes
+God                = "KeyQ"
+InstBuild          = "KeyW"
+UnlimitSuperWeapon = "KeyE"
+InstFire           = "KeyT"
+InstTurn           = "KeyY"
+RangeToYourBase    = "KeyU"
+FireToYourBase     = "KeyI"
+FreezeGapGenerator = "KeyO"
+SellTheWorld       = "KeyA"
+BuildEveryWhere    = "KeyD"
+AutoRepair         = "KeyF"
+SocialismMajesty   = "KeyH"
+MakeCapturedMine   = "KeyL"
+MakeGarrisonedMine = "KeyZ"
+InvadeMode         = "KeyX"
+UnlimitTech        = "KeyV"
+UnlimitFirePower   = "KeyB"
+InstChrono         = "KeyN"
+SpySpy             = "KeyM"
+SelectEnemy        = "Comma"   # ,
+PauseGame          = "Slash"   # /
