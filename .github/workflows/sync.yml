@@ -4,11 +4,14 @@ on:
   schedule:
     # 每天北京时间 6:00 (UTC 22:00) 自动同步
     - cron: '0 22 * * *'
-  workflow_dispatch: # 也支持手动触发
+  workflow_dispatch:
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
 
     steps:
     - name: Checkout
@@ -34,68 +37,50 @@ jobs:
         UPSTREAM=$(git rev-parse upstream/main)
 
         if [ "$LOCAL" = "$UPSTREAM" ]; then
-          echo "已经是最新，无需同步"
-          exit 0
+          echo "已经是最新，无需同步代码"
+        else
+          git merge upstream/main --allow-unrelated-histories --no-edit || {
+            git merge --abort
+            git reset --hard upstream/main
+          }
+          git push origin $BRANCH
+          echo "代码同步完成"
         fi
-
-        git merge upstream/main --allow-unrelated-histories --no-edit || {
-          echo "存在冲突，使用上游版本解决"
-          git merge --abort
-          git reset --hard upstream/main
-        }
-        echo "同步完成"
-
-    - name: Push changes
-      run: |
-        BRANCH=$(git branch --show-current)
-        git push origin $BRANCH
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Sync Release from upstream
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        UPSTREAM_REPO: AdjWang/RA2YurisRevengeTrainer
       run: |
-        # 获取上游最新 Release
-        UPSTREAM_LATEST=$(gh release list --repo AdjWang/RA2YurisRevengeTrainer --limit 1 --json tagName,assets,isDraft,isPrerelease)
-        echo "上游最新Release: $UPSTREAM_LATEST"
-
-        TAG=$(echo "$UPSTREAM_LATEST" | jq -r '.[0].tagName')
-        ASSET_URL=$(echo "$UPSTREAM_LATEST" | jq -r '.[0].assets[0].url')
-        ASSET_NAME=$(echo "$UPSTREAM_LATEST" | jq -r '.[0].assets[0].name')
-
-        echo "上游Tag: $TAG"
+        # 获取上游最新 Release 信息
+        RELEASE_JSON=$(curl -sL \
+          -H "Accept: application/vnd.github+json" \
+          "https://api.github.com/repos/$UPSTREAM_REPO/releases/latest")
+        
+        TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
+        NAME=$(echo "$RELEASE_JSON" | jq -r '.name')
+        BODY=$(echo "$RELEASE_JSON" | jq -r '.body')
+        PRERELEASE=$(echo "$RELEASE_JSON" | jq -r '.prerelease')
+        ASSET_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[0].url')
+        ASSET_NAME=$(echo "$RELEASE_JSON" | jq -r '.assets[0].name')
+        
+        echo "上游最新Release: $TAG / $NAME"
         echo "资产: $ASSET_NAME"
 
         # 下载上游资产
         curl -sL -o "/tmp/$ASSET_NAME" \
-          -H "Authorization: token $GH_TOKEN" \
           -H "Accept: application/octet-stream" \
           "$ASSET_URL"
-
         echo "下载完成: $(ls -la /tmp/$ASSET_NAME)"
 
-        # 获取上游 Release body
-        RELEASE_INFO=$(gh release view "$TAG" --repo AdjWang/RA2YurisRevengeTrainer --json body,name,isDraft,isPrerelease)
-        BODY=$(echo "$RELEASE_INFO" | jq -r '.body')
-        NAME=$(echo "$RELEASE_INFO" | jq -r '.name')
-        IS_PRE=$(echo "$RELEASE_INFO" | jq -r '.isPrerelease')
+        # 删除本地同Tag旧Release
+        gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
 
-        # 删除本地同Tag的旧Release（如果存在）
-        gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
-
-        # 创建新Release并上传资产
-        if [ "$IS_PRE" = "true" ]; then
-          gh release create "$TAG" "/tmp/$ASSET_NAME" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "$NAME" \
-            --notes "$BODY" \
-            --prerelease
+        # 创建新Release
+        if [ "$PRERELEASE" = "true" ]; then
+          gh release create "$TAG" "/tmp/$ASSET_NAME" --title "$NAME" --notes "$BODY" --prerelease
         else
-          gh release create "$TAG" "/tmp/$ASSET_NAME" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "$NAME" \
-            --notes "$BODY"
+          gh release create "$TAG" "/tmp/$ASSET_NAME" --title "$NAME" --notes "$BODY"
         fi
-
+        
         echo "Release $TAG 创建完成"
