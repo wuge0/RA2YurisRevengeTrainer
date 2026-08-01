@@ -29,31 +29,20 @@ jobs:
 
     - name: Sync with upstream
       run: |
-        # 获取当前分支名
         BRANCH=$(git branch --show-current)
-        echo "当前分支: $BRANCH"
-
-        # 检查上游是否有新提交
         LOCAL=$(git rev-parse HEAD)
         UPSTREAM=$(git rev-parse upstream/main)
-        echo "本地: $LOCAL"
-        echo "上游: $UPSTREAM"
 
         if [ "$LOCAL" = "$UPSTREAM" ]; then
           echo "已经是最新，无需同步"
           exit 0
         fi
 
-        # 合并上游代码
-        git merge upstream/main --allow-unrelated-histories --no-edit
-
-        # 如果有冲突，用上游版本覆盖
-        if [ $? -ne 0 ]; then
+        git merge upstream/main --allow-unrelated-histories --no-edit || {
           echo "存在冲突，使用上游版本解决"
           git merge --abort
           git reset --hard upstream/main
-        fi
-
+        }
         echo "同步完成"
 
     - name: Push changes
@@ -62,3 +51,51 @@ jobs:
         git push origin $BRANCH
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Sync Release from upstream
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # 获取上游最新 Release
+        UPSTREAM_LATEST=$(gh release list --repo AdjWang/RA2YurisRevengeTrainer --limit 1 --json tagName,assets,isDraft,isPrerelease)
+        echo "上游最新Release: $UPSTREAM_LATEST"
+
+        TAG=$(echo "$UPSTREAM_LATEST" | jq -r '.[0].tagName')
+        ASSET_URL=$(echo "$UPSTREAM_LATEST" | jq -r '.[0].assets[0].url')
+        ASSET_NAME=$(echo "$UPSTREAM_LATEST" | jq -r '.[0].assets[0].name')
+
+        echo "上游Tag: $TAG"
+        echo "资产: $ASSET_NAME"
+
+        # 下载上游资产
+        curl -sL -o "/tmp/$ASSET_NAME" \
+          -H "Authorization: token $GH_TOKEN" \
+          -H "Accept: application/octet-stream" \
+          "$ASSET_URL"
+
+        echo "下载完成: $(ls -la /tmp/$ASSET_NAME)"
+
+        # 获取上游 Release body
+        RELEASE_INFO=$(gh release view "$TAG" --repo AdjWang/RA2YurisRevengeTrainer --json body,name,isDraft,isPrerelease)
+        BODY=$(echo "$RELEASE_INFO" | jq -r '.body')
+        NAME=$(echo "$RELEASE_INFO" | jq -r '.name')
+        IS_PRE=$(echo "$RELEASE_INFO" | jq -r '.isPrerelease')
+
+        # 删除本地同Tag的旧Release（如果存在）
+        gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+
+        # 创建新Release并上传资产
+        if [ "$IS_PRE" = "true" ]; then
+          gh release create "$TAG" "/tmp/$ASSET_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$NAME" \
+            --notes "$BODY" \
+            --prerelease
+        else
+          gh release create "$TAG" "/tmp/$ASSET_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$NAME" \
+            --notes "$BODY"
+        fi
+
+        echo "Release $TAG 创建完成"
