@@ -49,38 +49,99 @@ jobs:
 
     - name: Sync Release from upstream
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         UPSTREAM_REPO: AdjWang/RA2YurisRevengeTrainer
+        FORK_REPO: ${{ github.repository }}
       run: |
-        # 获取上游最新 Release 信息
+        set -ex
+
+        # 1. 获取上游最新 Release 信息
         RELEASE_JSON=$(curl -sL \
           -H "Accept: application/vnd.github+json" \
           "https://api.github.com/repos/$UPSTREAM_REPO/releases/latest")
-        
+
         TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
         NAME=$(echo "$RELEASE_JSON" | jq -r '.name')
         BODY=$(echo "$RELEASE_JSON" | jq -r '.body')
         PRERELEASE=$(echo "$RELEASE_JSON" | jq -r '.prerelease')
-        ASSET_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[0].url')
+        ASSET_BROWSER_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[0].browser_download_url')
         ASSET_NAME=$(echo "$RELEASE_JSON" | jq -r '.assets[0].name')
-        
-        echo "上游最新Release: $TAG / $NAME"
+
+        echo "上游最新Release: tag=$TAG name=$NAME"
         echo "资产: $ASSET_NAME"
 
-        # 下载上游资产
-        curl -sL -o "/tmp/$ASSET_NAME" \
-          -H "Accept: application/octet-stream" \
-          "$ASSET_URL"
+        if [ -z "$TAG" ] || [ "$TAG" = "null" ]; then
+          echo "上游无Release，跳过"
+          exit 0
+        fi
+
+        # 2. 下载上游资产（browser_download_url 无需认证）
+        curl -sL -o "/tmp/$ASSET_NAME" "$ASSET_BROWSER_URL"
         echo "下载完成: $(ls -la /tmp/$ASSET_NAME)"
 
-        # 删除本地同Tag旧Release
-        gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+        # 3. 删除 fork 中同 Tag 的旧 Release（如果存在）
+        OLD_RELEASE_ID=$(curl -sL \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          "https://api.github.com/repos/$FORK_REPO/releases/tags/$TAG" \
+          | jq -r '.id // empty')
 
-        # 创建新Release
-        if [ "$PRERELEASE" = "true" ]; then
-          gh release create "$TAG" "/tmp/$ASSET_NAME" --title "$NAME" --notes "$BODY" --prerelease
-        else
-          gh release create "$TAG" "/tmp/$ASSET_NAME" --title "$NAME" --notes "$BODY"
+        if [ -n "$OLD_RELEASE_ID" ]; then
+          echo "删除旧Release ID=$OLD_RELEASE_ID"
+          curl -sL -X DELETE \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$FORK_REPO/releases/$OLD_RELEASE_ID"
+
+          # 删除旧 tag
+          curl -sL -X DELETE \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$FORK_REPO/git/refs/tags/$TAG" || true
         fi
-        
-        echo "Release $TAG 创建完成"
+
+        # 4. 创建新 Release（自动创建 tag）
+        if [ "$PRERELEASE" = "true" ]; then
+          PRE_FLAG="--data-raw"
+          PRE_DATA='{"prerelease":true}'
+        else
+          PRE_FLAG="--data-raw"
+          PRE_DATA='{"prerelease":false}'
+        fi
+
+        CREATE_PAYLOAD=$(jq -n \
+          --arg tag "$TAG" \
+          --arg name "$NAME" \
+          --arg body "$BODY" \
+          --argjson pre "$PRERELEASE" \
+          '{tag_name: $tag, name: $name, body: $body, prerelease: $pre}')
+
+        NEW_RELEASE=$(curl -sL \
+          -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          "https://api.github.com/repos/$FORK_REPO/releases" \
+          -d "$CREATE_PAYLOAD")
+
+        NEW_RELEASE_ID=$(echo "$NEW_RELEASE" | jq -r '.id')
+        UPLOAD_URL=$(echo "$NEW_RELEASE" | jq -r '.upload_url' | sed 's/{?name,label}//')
+
+        echo "新Release创建成功 ID=$NEW_RELEASE_ID"
+        echo "上传URL=$UPLOAD_URL"
+
+        if [ -z "$NEW_RELEASE_ID" ] || [ "$NEW_RELEASE_ID" = "null" ]; then
+          echo "创建Release失败: $NEW_RELEASE"
+          exit 1
+        fi
+
+        # 5. 上传资产到 fork Release
+        UPLOAD_RESP=$(curl -sL \
+          -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Content-Type: application/zip" \
+          --data-binary "@/tmp/$ASSET_NAME" \
+          "${UPLOAD_URL}?name=${ASSET_NAME}")
+
+        echo "资产上传结果: $(echo "$UPLOAD_RESP" | jq -r '.state // .message // "unknown"')"
+        echo "Release $TAG 同步完成"
