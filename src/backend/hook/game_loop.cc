@@ -4,6 +4,8 @@
 #define EAT_SHIT_FIRST  // prevent linter move windows shit down
 #include "base/macro.h"
 __YRTR_BEGIN_THIRD_PARTY_HEADERS
+#include "absl/debugging/failure_signal_handler.h"
+#include "absl/debugging/symbolize.h"
 #include "GameOptionsClass.h"
 #include "TacticalClass.h"
 #include "Unsorted.h"
@@ -22,6 +24,7 @@ namespace backend {
 namespace hook {
 
 namespace {
+static std::string dll_path;
 static std::once_flag init_once;
 static std::unique_ptr<Trainer> trainer;
 static std::unique_ptr<Server> server;
@@ -33,9 +36,31 @@ static void ReclaimResource() {
   trainer.reset();
 }
 
+// If another module has called absl::InitializeSymbolizer, the one inside this
+// dll would crash with FATAL logging error 87. Use this to safely call only once.
+static void InitializeSymbolizerSafe(const char*) {
+  HANDLE process = GetCurrentProcess();
+  SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
+  if (!SymInitialize(process, nullptr, true)) {
+    const DWORD error = GetLastError();
+    if (error == ERROR_INVALID_PARAMETER) {
+      // DbgHelp symbol handler is process-global. Another injected DLL may
+      // have already initialized it with the same process handle. Keep using
+      // the existing symbol handler instead of aborting.
+      return;
+    }
+    ABSL_RAW_LOG(FATAL, "SymInitialize() failed: %lu", error);
+  }
+}
+
 // int __thiscall CreateWindow_777C30(HINSTANCE hInstance, int xRight, int
 // yBottom)
 static void Init(HINSTANCE hInstance) {
+  InitializeSymbolizerSafe(dll_path.c_str());
+  absl::FailureSignalHandlerOptions options;
+  options.call_previous_handler = true;
+  absl::InstallFailureSignalHandler(options);
+  absl::InitializeLog();
   // Setup thread id.
   SetupGameLoopThreadOnce();
   // Load configurations.
@@ -114,6 +139,10 @@ static void WINAPI InjectPostMessageA(HWND hWnd, UINT Msg, WPARAM wParam,
   PostMessageA(hWnd, Msg, wParam, lParam);
 }
 }  // namespace
+
+void SetDllPath(std::string_view path) {
+  dll_path = std::string(path);
+}
 
 void ReclaimResourceOnce() {
   static std::once_flag destroy_flag;

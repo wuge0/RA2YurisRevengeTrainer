@@ -4,8 +4,8 @@
 #include <windows.h>
 #include <winsock2.h>
 
-#ifdef YRTR_DEBUG
 #include <Dbghelp.h>
+#ifdef YRTR_DEBUG
 #include <tlhelp32.h>
 #include <winternl.h>
 #endif

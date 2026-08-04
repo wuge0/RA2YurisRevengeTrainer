@@ -7,11 +7,6 @@ namespace fs = std::filesystem;
 #include "backend/config.h"
 #include "backend/hook/game_loop.h"
 #include "backend/hook/hook.h"
-#include "base/macro.h"
-__YRTR_BEGIN_THIRD_PARTY_HEADERS
-#include "absl/debugging/failure_signal_handler.h"
-#include "absl/debugging/symbolize.h"
-__YRTR_END_THIRD_PARTY_HEADERS
 #include "base/logging.h"
 #include "version.h"
 
@@ -38,10 +33,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason,
                                  yrtr::backend::Config::kLogFileName);
       std::string dll_path = GetModule(hinstDLL);
       if (!dll_path.empty()) {
-        absl::InitializeSymbolizer(dll_path.c_str());
-        absl::FailureSignalHandlerOptions options;
-        options.call_previous_handler = true;
-        absl::InstallFailureSignalHandler(options);
+        yrtr::backend::hook::SetDllPath(dll_path);
         // Only install hooks inside game executable. Maybe gamemd.exe,
         // gameares.exe, gamemd-spawn.exe...
         std::string exe_path = GetModule(NULL);

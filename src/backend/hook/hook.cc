@@ -10,7 +10,7 @@
 
 #ifdef YRTR_DEBUG
 // https://github.com/Phobos-developers/Phobos/blob/6391e7def58c8dc3168438087612cfaa8267c98d/src/Phobos.Ext.cpp#L306
-static bool DetachFromDebugger() {
+bool DetachFromDebugger() {
   auto GetDebuggerProcessId = [](DWORD dwSelfProcessId) -> DWORD {
     DWORD dwParentProcessId = 0;
     HANDLE hSnapshot = CreateToolhelp32Snapshot(2, 0);
@@ -73,7 +73,7 @@ static void DetachAresDebugger() {
   if (IsDebuggerPresent()) {
     DetachFromDebugger();
     LOG_F(INFO, "Detach debugger succeed={}", !IsDebuggerPresent());
-    // DEBUG
+    // For debugging.
     // MessageBox(NULL, "Debugger detatched", "Notice", MB_OK);
   }
 }
