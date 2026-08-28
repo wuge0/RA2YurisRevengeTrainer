@@ -221,7 +221,7 @@ static void __declspec(naked) __cdecl InjectFireToYourBase() {
   static const uint32_t jmp_return = 0x00701399;
   static yrpp::TechnoClass* target;
   __asm {
-    mov [target], esi
+    mov [target], ecx
     pushad
   }
   if (Trainer::ShouldProtect(target)) {

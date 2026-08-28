@@ -31,7 +31,9 @@ static std::unique_ptr<Server> server;
 
 static void ReclaimResource() {
   DLOG_F(INFO, "Reclaim resources");
-  server->Stop();
+  if (server != nullptr) {
+    server->Stop();
+  }
   server.reset();
   trainer.reset();
 }
