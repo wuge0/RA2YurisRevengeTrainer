@@ -48,6 +48,7 @@ export class Localization {
         IAMWinner: "立即胜利",
         ThisIsMine: "这是我的",
         God: "无敌",
+        NoPowerDrain: "无限电力",
         InstBuild: "瞬间建造",
         UnlimitSuperWeapon: "无限超武",
         InstFire: "极速攻击",
@@ -67,7 +68,7 @@ export class Localization {
         InstChrono: "瞬间超时空",
         SpySpy: "无间道",
         SelectEnemy: "多选敌方单位",
-        PauseGame: "暂停游戏",
+        FreezeGame: "暂停游戏",
         AdjustGameSpeed: "任务调速"
       },
       en: {
@@ -81,6 +82,7 @@ export class Localization {
         IAMWinner: "Win now",
         ThisIsMine: "Capture selected units",
         God: "Invulnerable",
+        NoPowerDrain: "No power drain",
         InstBuild: "Instant build",
         UnlimitSuperWeapon: "No superweapon cooldown",
         InstFire: "Maximum fire rate",
@@ -100,7 +102,7 @@ export class Localization {
         InstChrono: "No chrono cooldown",
         SpySpy: "Enemy spies grant tech",
         SelectEnemy: "Multi-select enemy units",
-        PauseGame: "Pause game",
+        FreezeGame: "Freeze game",
         AdjustGameSpeed: "Game speed"
       }
     };

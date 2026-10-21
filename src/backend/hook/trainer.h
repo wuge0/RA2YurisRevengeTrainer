@@ -89,7 +89,7 @@ class Trainer : public ITrainer {
 
   bool paused() const {
     DCHECK(IsWithinGameLoopThread());
-    return state_.ckbox_states.at(FnLabel::kPauseGame).activate;
+    return state_.ckbox_states.at(FnLabel::kFreezeGame).activate;
   }
   // Use a bool trigger as debouncing mechanism.
   bool pending_record_;
@@ -120,6 +120,7 @@ class Trainer : public ITrainer {
   void OnBtnThisIsMine();
 
   void OnCkboxGod(bool activate);
+  void OnCkboxNoPowerDrain(bool activate);
   void OnCkboxInstBuild(bool activate);
   void OnCkboxUnlimitSuperWeapon(bool activate);
   void OnCkboxInstFire(bool activate);
@@ -139,7 +140,7 @@ class Trainer : public ITrainer {
   void OnCkboxInstChrono(bool activate);
   void OnCkboxSpySpy(bool activate);
   void OnCkboxSelectEnemy(bool activate);
-  void OnCkboxPauseGame(bool activate);
+  void OnCkboxFreezeGame(bool activate);
   void OnSliderAdjustGameSpeed(uint32_t val);
 
   void UpdateCheckboxState(FnLabel label, bool activate);

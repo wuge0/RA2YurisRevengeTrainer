@@ -30,6 +30,7 @@ enum class FnLabel {
   kThisIsMine,
   // Checkbox
   kGod,
+  kNoPowerDrain,
   kInstBuild,
   kUnlimitSuperWeapon,
   kInstFire,
@@ -49,7 +50,7 @@ enum class FnLabel {
   kInstChrono,
   kSpySpy,
   kSelectEnemy,
-  kPauseGame,
+  kFreezeGame,
   // Slider
   kAdjustGameSpeed,
   kCount,
@@ -70,6 +71,7 @@ constexpr std::string_view StrFnLabel(FnLabel label) {
     case FnLabel::kThisIsMine:          return "ThisIsMine";
     // Checkbox
     case FnLabel::kGod:                 return "God";
+    case FnLabel::kNoPowerDrain:        return "NoPowerDrain";
     case FnLabel::kInstBuild:           return "InstBuild";
     case FnLabel::kUnlimitSuperWeapon:  return "UnlimitSuperWeapon";
     case FnLabel::kInstFire:            return "InstFire";
@@ -89,7 +91,7 @@ constexpr std::string_view StrFnLabel(FnLabel label) {
     case FnLabel::kInstChrono:          return "InstChrono";
     case FnLabel::kSpySpy:              return "SpySpy";
     case FnLabel::kSelectEnemy:         return "SelectEnemy";
-    case FnLabel::kPauseGame:           return "PauseGame";
+    case FnLabel::kFreezeGame:           return "FreezeGame";
     // Slider
     case FnLabel::kAdjustGameSpeed:     return "AdjustGameSpeed";
     case FnLabel::kCount:               return "Count";
@@ -110,6 +112,7 @@ inline FnLabel StrToFnLabel(std::string_view str) {
   if (str == "ThisIsMine")         return FnLabel::kThisIsMine;
   // Checkbox
   if (str == "God")                return FnLabel::kGod;
+  if (str == "NoPowerDrain")       return FnLabel::kNoPowerDrain;
   if (str == "InstBuild")          return FnLabel::kInstBuild;
   if (str == "UnlimitSuperWeapon") return FnLabel::kUnlimitSuperWeapon;
   if (str == "InstFire")           return FnLabel::kInstFire;
@@ -129,7 +132,7 @@ inline FnLabel StrToFnLabel(std::string_view str) {
   if (str == "InstChrono")         return FnLabel::kInstChrono;
   if (str == "SpySpy")             return FnLabel::kSpySpy;
   if (str == "SelectEnemy")        return FnLabel::kSelectEnemy;
-  if (str == "PauseGame")          return FnLabel::kPauseGame;
+  if (str == "FreezeGame")          return FnLabel::kFreezeGame;
   // Slider
   if (str == "AdjustGameSpeed")    return FnLabel::kAdjustGameSpeed;
   return FnLabel::kInvalid;
